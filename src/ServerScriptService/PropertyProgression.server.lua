@@ -1,18 +1,38 @@
-local Players = game:GetService("Players")
-
 local world = workspace:WaitForChild("HometownWorld")
 local plotsFolder = world:WaitForChild("Plots")
 
 local PLOT_PRICE = 2500
-local TIERS = {
-	{Name="Starter House", UpgradeCost=0, SalePrice=5000, Rent=250},
-	{Name="Family Home", UpgradeCost=5000, SalePrice=11000, Rent=500},
-	{Name="Detached House", UpgradeCost=10000, SalePrice=23000, Rent=850},
-	{Name="Luxury Villa", UpgradeCost=25000, SalePrice=52000, Rent=1500},
-	{Name="Mansion", UpgradeCost=60000, SalePrice=120000, Rent=3000},
-	{Name="Apartment Tower", UpgradeCost=150000, SalePrice=300000, Rent=7000},
-	{Name="Hometown Skyscraper", UpgradeCost=400000, SalePrice=800000, Rent=18000},
+
+local LEVEL_NAMES = {
+	"Camping Tent", "Large Tent", "Wooden Shelter", "Tiny Cabin", "Basic Shack",
+	"Improved Shack", "Small Cottage", "Cosy Cottage", "Starter Bungalow", "Modern Bungalow",
+	"Small Family Home", "Family Home", "Large Family Home", "Semi-Detached House", "Detached House",
+	"Large Detached House", "Executive Home", "Luxury Home", "Country Villa", "Modern Villa",
+	"Luxury Villa", "Grand Villa", "Small Manor", "Country Manor", "Grand Manor",
+	"Mini Mansion", "Luxury Mansion", "Grand Mansion", "Estate Mansion", "Royal Mansion",
+	"Low-Rise Apartments", "Apartment Block", "Large Apartment Block", "Luxury Apartments", "Residential Tower",
+	"City Tower", "Glass Tower", "Executive Tower", "Prestige Tower", "Metropolitan Tower",
+	"Downtown Skyscraper", "Luxury Skyscraper", "Financial Tower", "Landmark Tower", "Grand Skyscraper",
+	"Supertall Tower", "Hometown Spire", "Hometown Megatower", "Sky City", "Hometown World Tower",
 }
+
+local TIERS = {}
+for level, name in ipairs(LEVEL_NAMES) do
+	local upgradeCost
+	if level == 1 then
+		upgradeCost = 0
+	else
+		upgradeCost = math.floor(900 * (1.19 ^ (level - 2)) / 50 + 0.5) * 50
+	end
+	local totalValue = math.floor((PLOT_PRICE + 1800 * (1.17 ^ (level - 1))) / 100 + 0.5) * 100
+	local rent = math.max(50, math.floor((totalValue * 0.018) / 10 + 0.5) * 10)
+	TIERS[level] = {
+		Name = name,
+		UpgradeCost = upgradeCost,
+		SalePrice = totalValue,
+		Rent = rent,
+	}
+end
 
 local function money(value)
 	local text = tostring(math.floor(value))
@@ -30,24 +50,113 @@ local function cashValue(player)
 end
 
 local function makePart(parent, name, size, position, colour, material)
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Size = size
-	p.Position = position
-	p.Anchored = true
-	p.CanCollide = true
-	p.Color = colour
-	p.Material = material or Enum.Material.SmoothPlastic
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	p.Parent = parent
-	return p
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Position = position
+	part.Anchored = true
+	part.CanCollide = true
+	part.Color = colour
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
 end
 
-local function window(parent, size, position)
-	local p = makePart(parent, "Window", size, position, Color3.fromRGB(120,205,255), Enum.Material.Glass)
-	p.Transparency = 0.25
-	return p
+local function makeWindow(parent, size, position)
+	local part = makePart(parent, "Window", size, position, Color3.fromRGB(115, 205, 255), Enum.Material.Glass)
+	part.Transparency = 0.25
+	part.Reflectance = 0.08
+	return part
+end
+
+local function addDoor(house, centre, front, width, height, distance)
+	return makePart(
+		house,
+		"Door",
+		Vector3.new(width, height, 1),
+		centre + Vector3.new(0, height / 2 + 1, front * distance),
+		Color3.fromRGB(45, 65, 85),
+		Enum.Material.Metal
+	)
+end
+
+local function buildTent(house, centre, level)
+	local width = 12 + level * 2
+	local depth = 10 + level
+	makePart(house, "TentFloor", Vector3.new(width, 0.5, depth), centre + Vector3.new(0, 1.2, 0), Color3.fromRGB(105, 80, 55), Enum.Material.WoodPlanks)
+	local canvas = makePart(house, "TentCanvas", Vector3.new(width, 7 + level, depth), centre + Vector3.new(0, 5, 0), Color3.fromRGB(75 + level * 10, 125 + level * 8, 80), Enum.Material.Fabric)
+	canvas.Shape = Enum.PartType.Wedge
+end
+
+local function buildCabin(house, centre, front, level)
+	local localLevel = level - 2
+	local width = 18 + localLevel * 3
+	local height = 8 + localLevel * 1.5
+	local depth = 16 + localLevel * 2
+	makePart(house, "Cabin", Vector3.new(width, height, depth), centre + Vector3.new(0, height / 2 + 1, 0), Color3.fromRGB(135, 95, 60), Enum.Material.WoodPlanks)
+	makePart(house, "Roof", Vector3.new(width + 4, 2.5, depth + 4), centre + Vector3.new(0, height + 2.2, 0), Color3.fromRGB(75, 58, 45), Enum.Material.Slate)
+	addDoor(house, centre, front, 4, 7, depth / 2 + 0.6)
+end
+
+local function buildHouse(house, centre, front, level)
+	local localLevel = level - 7
+	local floors = 1 + math.floor((localLevel - 1) / 4)
+	local width = math.min(48, 25 + localLevel * 1.4)
+	local depth = math.min(38, 21 + localLevel)
+	local floorHeight = 9
+	local height = floors * floorHeight
+	local wallColour = Color3.fromRGB(225 - math.min(55, localLevel * 3), 210 - math.min(40, localLevel * 2), 185 + math.min(45, localLevel * 2))
+	makePart(house, "MainBuilding", Vector3.new(width, height, depth), centre + Vector3.new(0, height / 2 + 1, 0), wallColour, Enum.Material.Brick)
+	makePart(house, "Roof", Vector3.new(width + 4, 3, depth + 4), centre + Vector3.new(0, height + 2.5, 0), Color3.fromRGB(75, 58, 50), Enum.Material.Slate)
+	if level >= 14 then
+		makePart(house, "Garage", Vector3.new(13, 9, depth - 4), centre + Vector3.new(width / 2 + 7, 5.5, 1), Color3.fromRGB(205, 205, 198), Enum.Material.Concrete)
+	end
+	for floor = 1, floors do
+		local y = 5 + (floor - 1) * floorHeight
+		for _, x in ipairs({-width * 0.28, width * 0.28}) do
+			makeWindow(house, Vector3.new(5, 4, 0.6), Vector3.new(centre.X + x, centre.Y + y, centre.Z + front * (depth / 2 + 0.35)))
+		end
+	end
+	addDoor(house, centre, front, 5, 8, depth / 2 + 0.6)
+end
+
+local function buildMansion(house, centre, front, level)
+	local localLevel = level - 20
+	local width = math.min(50, 38 + localLevel)
+	local depth = math.min(40, 30 + localLevel * 0.5)
+	local height = 18 + math.floor(localLevel / 3) * 4
+	local stone = Color3.fromRGB(228, 220, 202)
+	makePart(house, "MansionMain", Vector3.new(width, height, depth), centre + Vector3.new(0, height / 2 + 1, 0), stone, Enum.Material.Marble)
+	makePart(house, "LeftWing", Vector3.new(11, height * 0.72, depth - 4), centre + Vector3.new(-width / 2 - 5, height * 0.36 + 1, 1), stone, Enum.Material.Marble)
+	makePart(house, "RightWing", Vector3.new(11, height * 0.72, depth - 4), centre + Vector3.new(width / 2 + 5, height * 0.36 + 1, 1), stone, Enum.Material.Marble)
+	makePart(house, "Roof", Vector3.new(width + 5, 4, depth + 5), centre + Vector3.new(0, height + 3, 0), Color3.fromRGB(65, 50, 45), Enum.Material.Slate)
+	for _, x in ipairs({-width * 0.3, -width * 0.1, width * 0.1, width * 0.3}) do
+		makeWindow(house, Vector3.new(4, 6, 0.6), Vector3.new(centre.X + x, centre.Y + height * 0.58, centre.Z + front * (depth / 2 + 0.35)))
+	end
+	addDoor(house, centre, front, 7, 10, depth / 2 + 0.6)
+end
+
+local function buildTower(house, centre, front, level)
+	local localLevel = level - 30
+	local width = math.min(48, 30 + localLevel * 0.7)
+	local depth = math.min(38, 25 + localLevel * 0.45)
+	local height = 35 + localLevel * 6
+	local bodyColour = Color3.fromRGB(math.max(40, 90 - localLevel * 2), math.max(65, 110 - localLevel), math.min(145, 120 + localLevel))
+	makePart(house, "Podium", Vector3.new(math.min(54, width + 9), 8, math.min(44, depth + 8)), centre + Vector3.new(0, 5, 0), Color3.fromRGB(80, 85, 95), Enum.Material.Concrete)
+	local tower = makePart(house, "Tower", Vector3.new(width, height, depth), centre + Vector3.new(0, height / 2 + 9, 0), bodyColour, Enum.Material.Glass)
+	tower.Transparency = 0.08
+	for y = 16, height + 5, 9 do
+		makeWindow(house, Vector3.new(width - 4, 4, 0.45), Vector3.new(centre.X, centre.Y + y, centre.Z + front * (depth / 2 + 0.25)))
+	end
+	if level >= 41 then
+		makePart(house, "Crown", Vector3.new(width * 0.72, 8 + (level - 40), depth * 0.72), centre + Vector3.new(0, height + 14, 0), Color3.fromRGB(35, 42, 52), Enum.Material.Metal)
+	end
+	if level >= 47 then
+		makePart(house, "Spire", Vector3.new(3, 25 + (level - 47) * 8, 3), centre + Vector3.new(0, height + 34, 0), Color3.fromRGB(195, 205, 215), Enum.Material.Metal)
+	end
+	addDoor(house, centre, front, 9, 10, depth / 2 + 4.6)
 end
 
 local function buildTier(plot, tier)
@@ -66,41 +175,17 @@ local function buildTier(plot, tier)
 	house:SetAttribute("UpgradeTier", tier)
 	house.Parent = plot
 
-	local wall = Color3.fromRGB(225 - tier * 8, 215 - tier * 5, 195 + tier * 4)
-	local roof = Color3.fromRGB(70,55,50)
-
-	if tier == 1 then
-		makePart(house,"Body",Vector3.new(26,10,22),centre+Vector3.new(0,6,0),wall,Enum.Material.Brick)
-		makePart(house,"Roof",Vector3.new(30,3,26),centre+Vector3.new(0,12.5,0),roof,Enum.Material.Slate)
-	elseif tier == 2 then
-		makePart(house,"Body",Vector3.new(32,16,26),centre+Vector3.new(0,9,0),wall,Enum.Material.Brick)
-		makePart(house,"Roof",Vector3.new(36,4,30),centre+Vector3.new(0,19,0),roof,Enum.Material.Slate)
-	elseif tier == 3 then
-		makePart(house,"Main",Vector3.new(36,20,28),centre+Vector3.new(-4,11,0),wall,Enum.Material.Brick)
-		makePart(house,"Garage",Vector3.new(14,12,24),centre+Vector3.new(21,7,2),Color3.fromRGB(205,205,200),Enum.Material.Concrete)
-		makePart(house,"Roof",Vector3.new(40,4,32),centre+Vector3.new(-4,23,0),roof,Enum.Material.Slate)
-	elseif tier == 4 then
-		makePart(house,"Lower",Vector3.new(42,12,32),centre+Vector3.new(0,7,0),Color3.fromRGB(235,235,230),Enum.Material.Concrete)
-		makePart(house,"Upper",Vector3.new(34,11,26),centre+Vector3.new(-5,18,-2*front),Color3.fromRGB(90,100,110),Enum.Material.Concrete)
-		makePart(house,"FlatRoof",Vector3.new(38,1.5,30),centre+Vector3.new(-5,24.2,-2*front),Color3.fromRGB(35,38,42),Enum.Material.Metal)
-	elseif tier == 5 then
-		makePart(house,"MansionMain",Vector3.new(46,24,34),centre+Vector3.new(0,13,0),Color3.fromRGB(226,218,200),Enum.Material.Marble)
-		makePart(house,"LeftWing",Vector3.new(14,18,28),centre+Vector3.new(-27,10,2),Color3.fromRGB(226,218,200),Enum.Material.Marble)
-		makePart(house,"RightWing",Vector3.new(14,18,28),centre+Vector3.new(27,10,2),Color3.fromRGB(226,218,200),Enum.Material.Marble)
-		makePart(house,"Roof",Vector3.new(54,4,40),centre+Vector3.new(0,27,0),roof,Enum.Material.Slate)
-	elseif tier == 6 then
-		makePart(house,"Podium",Vector3.new(48,8,38),centre+Vector3.new(0,5,0),Color3.fromRGB(95,100,110),Enum.Material.Concrete)
-		makePart(house,"Tower",Vector3.new(34,58,28),centre+Vector3.new(0,38,0),Color3.fromRGB(70,90,105),Enum.Material.Glass)
-		for y=14,62,8 do window(house,Vector3.new(30,4,0.5),Vector3.new(centre.X,centre.Y+y,centre.Z+front*14.2)) end
+	if tier <= 2 then
+		buildTent(house, centre, tier)
+	elseif tier <= 6 then
+		buildCabin(house, centre, front, tier)
+	elseif tier <= 20 then
+		buildHouse(house, centre, front, tier)
+	elseif tier <= 30 then
+		buildMansion(house, centre, front, tier)
 	else
-		makePart(house,"Podium",Vector3.new(52,10,42),centre+Vector3.new(0,6,0),Color3.fromRGB(70,75,82),Enum.Material.Concrete)
-		makePart(house,"Skyscraper",Vector3.new(38,110,32),centre+Vector3.new(0,66,0),Color3.fromRGB(55,75,92),Enum.Material.Glass)
-		makePart(house,"Crown",Vector3.new(30,12,26),centre+Vector3.new(0,127,0),Color3.fromRGB(35,40,48),Enum.Material.Metal)
-		for y=18,112,8 do window(house,Vector3.new(34,4,0.5),Vector3.new(centre.X,centre.Y+y,centre.Z+front*16.2)) end
+		buildTower(house, centre, front, tier)
 	end
-
-	local doorName = tier >= 6 and "TowerEntrance" or "Door"
-	makePart(house,doorName,Vector3.new(tier>=6 and 9 or 5,tier>=6 and 10 or 8,1),centre+Vector3.new(0,tier>=6 and 6 or 5,front*(tier>=6 and 19.5 or (tier==5 and 17.5 or 14.5))),Color3.fromRGB(40,55,70),Enum.Material.Metal)
 
 	plot:SetAttribute("HouseBuilt", true)
 	plot:SetAttribute("HouseType", "Tier" .. tier)
@@ -120,27 +205,32 @@ local function refresh(plot, prompt)
 	local owner = plot:GetAttribute("OwnerUserId") or 0
 	local tier = plot:GetAttribute("UpgradeTier") or 0
 	local label = signLabel(plot)
+
 	if owner == 0 then
 		prompt.ActionText = "Buy Property"
-		prompt.ObjectText = "Starter property " .. money(PLOT_PRICE)
-		if label then label.Text = "FOR SALE\n" .. money(PLOT_PRICE) .. "\nINCLUDES STARTER HOUSE" end
+		prompt.ObjectText = "Level 1 Tent - " .. money(PLOT_PRICE)
+		if label then label.Text = "FOR SALE\n" .. money(PLOT_PRICE) .. "\nSTARTS AT LEVEL 1" end
 	elseif tier < #TIERS then
+		local currentTier = TIERS[math.max(1, tier)]
 		local nextTier = TIERS[tier + 1]
-		prompt.ActionText = "Upgrade"
+		prompt.ActionText = "Upgrade to Level " .. (tier + 1)
 		prompt.ObjectText = nextTier.Name .. " - " .. money(nextTier.UpgradeCost)
-		if label then label.Text = TIERS[tier].Name:upper() .. "\nNEXT: " .. nextTier.Name:upper() .. "\n" .. money(nextTier.UpgradeCost) end
+		if label then
+			label.Text = "LEVEL " .. tier .. ": " .. currentTier.Name:upper() .. "\nNEXT: " .. nextTier.Name:upper() .. "\n" .. money(nextTier.UpgradeCost)
+		end
 	else
-		prompt.ActionText = "Fully Upgraded"
-		prompt.ObjectText = TIERS[tier].Name
-		if label then label.Text = "HOMETOWN SKYSCRAPER\nMAX LEVEL" end
+		prompt.ActionText = "Maximum Level"
+		prompt.ObjectText = "Level 50 - " .. TIERS[50].Name
+		if label then label.Text = "LEVEL 50\n" .. TIERS[50].Name:upper() .. "\nMAXIMUM LEVEL" end
 	end
 end
 
 for _, plot in ipairs(plotsFolder:GetChildren()) do
 	if plot:IsA("Model") then
 		local sign = plot:WaitForChild("Sign")
-		local oldPrompt = sign:FindFirstChild("PropertyPrompt")
-		if oldPrompt then oldPrompt:Destroy() end
+		for _, child in ipairs(sign:GetChildren()) do
+			if child:IsA("ProximityPrompt") then child:Destroy() end
+		end
 
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "ProgressionPrompt"
@@ -150,7 +240,7 @@ for _, plot in ipairs(plotsFolder:GetChildren()) do
 		prompt.Parent = sign
 
 		plot:SetAttribute("UpgradeTier", plot:GetAttribute("UpgradeTier") or 0)
-		refresh(plot,prompt)
+		refresh(plot, prompt)
 
 		prompt.Triggered:Connect(function(player)
 			local cash = cashValue(player)
@@ -162,23 +252,23 @@ for _, plot in ipairs(plotsFolder:GetChildren()) do
 				if cash.Value < PLOT_PRICE then return end
 				cash.Value -= PLOT_PRICE
 				plot:SetAttribute("OwnerUserId", player.UserId)
-				buildTier(plot,1)
+				buildTier(plot, 1)
 			elseif owner == player.UserId and tier < #TIERS then
-				local cost = TIERS[tier+1].UpgradeCost
+				local cost = TIERS[tier + 1].UpgradeCost
 				if cash.Value < cost then return end
 				cash.Value -= cost
-				buildTier(plot,tier+1)
+				buildTier(plot, tier + 1)
 			end
-			refresh(plot,prompt)
+			refresh(plot, prompt)
 		end)
 
 		task.spawn(function()
 			while plot.Parent do
-				refresh(plot,prompt)
+				refresh(plot, prompt)
 				task.wait(2)
 			end
 		end)
 	end
 end
 
-print("Property upgrade progression loaded")
+print("50-level property progression loaded")
