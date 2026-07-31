@@ -5,6 +5,11 @@
     "ReplicatedStorage": {
       "$path": "src/ReplicatedStorage"
     },
+    "ServerStorage": {
+      "DetailedBus": {
+        "$path": "DetailedBus.rbxm"
+      }
+    },
     "ServerScriptService": {
       "$path": "src/ServerScriptService"
     },
