@@ -38,7 +38,7 @@ local function removeLegacyTraffic()
 	end
 
 	for _, object in ipairs(trafficFolder:GetChildren()) do
-		if not string.match(object.Name, "^DetailedBus%d+$") then
+		if object.Name ~= "DetailedBus1" and object.Name ~= "DetailedBus2" then
 			object:Destroy()
 		end
 	end
@@ -91,15 +91,16 @@ if minX == math.huge then
 	minX, maxX, minZ, maxZ = -120, 120, -80, 80
 end
 
-local roadZ = (minZ + maxZ) / 2
+local roadCentreZ = (minZ + maxZ) / 2
 local startX = minX - 65
 local endX = maxX + 65
-local laneOffsets = {-8, 0, 8}
+local leftLaneZ = roadCentreZ - 6
+local rightLaneZ = roadCentreZ + 6
 
 local templateSize = busTemplate:GetExtentsSize()
-local yaw = (templateSize.Z >= templateSize.X and math.rad(90) or 0) + math.rad(180)
+local baseYaw = (templateSize.Z >= templateSize.X and math.rad(90) or 0) + math.rad(180)
 
-local function placeBus(bus, x, z)
+local function placeBus(bus, x, z, yaw)
 	bus:PivotTo(CFrame.new(x, 0, z) * CFrame.Angles(0, yaw, 0))
 	local boxCFrame, boxSize = bus:GetBoundingBox()
 	local bottomY = boxCFrame.Position.Y - boxSize.Y / 2
@@ -107,8 +108,8 @@ local function placeBus(bus, x, z)
 	bus:PivotTo(CFrame.new(correction) * bus:GetPivot())
 end
 
-local function moveBus(bus, fromX, toX, z, duration)
-	placeBus(bus, fromX, z)
+local function moveBus(bus, fromX, toX, z, yaw, duration)
+	placeBus(bus, fromX, z, yaw)
 	local startPivot = bus:GetPivot()
 	local targetPivot = CFrame.new(toX - fromX, 0, 0) * startPivot
 
@@ -127,17 +128,22 @@ local function moveBus(bus, fromX, toX, z, duration)
 	driver:Destroy()
 end
 
-for index = 1, 3 do
-	local bus = cloneTemplate("DetailedBus" .. index)
-	local z = roadZ + laneOffsets[index]
+local bus1 = cloneTemplate("DetailedBus1")
+local bus2 = cloneTemplate("DetailedBus2")
 
-	task.spawn(function()
-		task.wait((index - 1) * 7)
-		while bus.Parent do
-			moveBus(bus, startX, endX, z, 30 + index * 2)
-			task.wait(3)
-		end
-	end)
-end
+task.spawn(function()
+	while bus1.Parent do
+		moveBus(bus1, startX, endX, leftLaneZ, baseYaw, 32)
+		task.wait(3)
+	end
+end)
 
-print("Imported detailed bus traffic loaded; legacy traffic removed")
+task.spawn(function()
+	task.wait(5)
+	while bus2.Parent do
+		moveBus(bus2, endX, startX, rightLaneZ, baseYaw + math.rad(180), 32)
+		task.wait(3)
+	end
+end)
+
+print("Two imported buses running in opposite directions on separate sides of the road")
