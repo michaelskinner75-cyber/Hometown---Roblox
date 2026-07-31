@@ -94,8 +94,8 @@ end
 local roadCentreZ = (minZ + maxZ) / 2
 local startX = minX - 65
 local endX = maxX + 65
-local leftLaneZ = roadCentreZ - 6
-local rightLaneZ = roadCentreZ + 6
+local leftLaneZ = roadCentreZ - 10
+local rightLaneZ = roadCentreZ + 10
 
 local templateSize = busTemplate:GetExtentsSize()
 local baseYaw = (templateSize.Z >= templateSize.X and math.rad(90) or 0) + math.rad(180)
@@ -146,4 +146,4 @@ task.spawn(function()
 	end
 end)
 
-print("Two imported buses running in opposite directions on separate sides of the road")
+print("Two imported buses running in opposite directions with wider lane spacing")
