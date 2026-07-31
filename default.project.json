@@ -11,6 +11,21 @@
       },
       "HighStreetRestaurant": {
         "$path": "HighStreetRestaurant.rbxmx"
+      },
+      "House01_WoodenShed": {
+        "$path": "House01-WoodenShed.rbxmx"
+      },
+      "House02_TreeHouse": {
+        "$path": "House02-TreeHouse.rbxmx"
+      },
+      "House03_LogCabin": {
+        "$path": "House03-LogCabin.rbxmx"
+      },
+      "House04_SmallHouse": {
+        "$path": "House04-SmallHouse.rbxmx"
+      },
+      "House05_LargeHouse": {
+        "$path": "House05-LargeHouse.rbxmx"
       }
     },
     "ServerScriptService": {
