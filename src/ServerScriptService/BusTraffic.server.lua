@@ -5,10 +5,29 @@ local world = workspace:WaitForChild("HometownWorld")
 local plotsFolder = world:WaitForChild("Plots")
 local busTemplate = ServerStorage:WaitForChild("DetailedBus")
 
-local trafficFolder = world:FindFirstChild("BusTraffic") or Instance.new("Folder")
+-- Remove all older generated traffic and car models before loading the imported buses.
+for _, object in ipairs(world:GetDescendants()) do
+	if object:IsA("Model") then
+		local name = string.lower(object.Name)
+		if string.find(name, "car")
+			or string.find(name, "vehicle")
+			or string.find(name, "traffic")
+			or string.find(name, "service7")
+			or string.find(name, "servicex24")
+			or string.find(name, "service39") then
+			object:Destroy()
+		end
+	end
+end
+
+local oldTraffic = world:FindFirstChild("BusTraffic")
+if oldTraffic then
+	oldTraffic:Destroy()
+end
+
+local trafficFolder = Instance.new("Folder")
 trafficFolder.Name = "BusTraffic"
 trafficFolder.Parent = world
-trafficFolder:ClearAllChildren()
 
 local function cleanBus(model)
 	for _, object in ipairs(model:GetDescendants()) do
@@ -54,7 +73,8 @@ local endX = maxX + 65
 local laneOffsets = {-8, 0, 8}
 
 local templateSize = busTemplate:GetExtentsSize()
-local yaw = templateSize.Z >= templateSize.X and math.rad(90) or 0
+local baseYaw = templateSize.Z >= templateSize.X and math.rad(90) or 0
+local yaw = baseYaw + math.rad(180)
 
 local function placeBus(bus, x, z)
 	bus:PivotTo(CFrame.new(x, 0, z) * CFrame.Angles(0, yaw, 0))
@@ -101,4 +121,4 @@ for index = 1, 3 do
 	end)
 end
 
-print("Imported detailed bus traffic loaded")
+print("Imported bus-only traffic loaded")
