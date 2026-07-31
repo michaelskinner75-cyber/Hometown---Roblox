@@ -4,6 +4,8 @@ local Players = game:GetService("Players")
 local cashStore = DataStoreService:GetDataStore("HometownCash_v1")
 local AUTOSAVE_INTERVAL = 60
 local MAX_RETRIES = 3
+local PROPERTY_PRICE = 2500
+local RECOVERY_CASH = 7500
 
 local loadedPlayers = {}
 local savingPlayers = {}
@@ -43,7 +45,13 @@ local function loadPlayer(player)
 
 	if success then
 		if typeof(savedCash) == "number" then
-			cash.Value = math.max(0, math.floor(savedCash))
+			local amount = math.max(0, math.floor(savedCash))
+			-- Property ownership is not persistent yet. Prevent old cash-only saves
+			-- from loading below the price of a replacement property.
+			if amount < PROPERTY_PRICE then
+				amount = RECOVERY_CASH
+			end
+			cash.Value = amount
 		end
 		loadedPlayers[player] = true
 	else
