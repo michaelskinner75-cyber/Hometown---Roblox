@@ -5,29 +5,53 @@ local world = workspace:WaitForChild("HometownWorld")
 local plotsFolder = world:WaitForChild("Plots")
 local busTemplate = ServerStorage:WaitForChild("DetailedBus")
 
--- Remove all older generated traffic and car models before loading the imported buses.
-for _, object in ipairs(world:GetDescendants()) do
-	if object:IsA("Model") then
-		local name = string.lower(object.Name)
-		if string.find(name, "car")
-			or string.find(name, "vehicle")
-			or string.find(name, "traffic")
-			or string.find(name, "service7")
-			or string.find(name, "servicex24")
-			or string.find(name, "service39") then
+local trafficFolder = world:FindFirstChild("BusTraffic") or Instance.new("Folder")
+trafficFolder.Name = "BusTraffic"
+trafficFolder.Parent = world
+trafficFolder:ClearAllChildren()
+
+local function isLegacyTrafficName(name)
+	local n = string.lower(name)
+	return string.find(n, "car")
+		or string.find(n, "vehicle")
+		or string.find(n, "traffic")
+		or string.find(n, "service7")
+		or string.find(n, "servicex24")
+		or string.find(n, "service39")
+		or string.find(n, "oldbus")
+		or string.find(n, "citybus")
+end
+
+local function removeLegacyTraffic()
+	for _, object in ipairs(world:GetChildren()) do
+		if object ~= trafficFolder and isLegacyTrafficName(object.Name) then
+			object:Destroy()
+		end
+	end
+
+	for _, object in ipairs(world:GetDescendants()) do
+		if object ~= trafficFolder and not object:IsDescendantOf(trafficFolder) then
+			if (object:IsA("Model") or object:IsA("Folder")) and isLegacyTrafficName(object.Name) then
+				object:Destroy()
+			end
+		end
+	end
+
+	for _, object in ipairs(trafficFolder:GetChildren()) do
+		if not string.match(object.Name, "^DetailedBus%d+$") then
 			object:Destroy()
 		end
 	end
 end
 
-local oldTraffic = world:FindFirstChild("BusTraffic")
-if oldTraffic then
-	oldTraffic:Destroy()
-end
+removeLegacyTraffic()
 
-local trafficFolder = Instance.new("Folder")
-trafficFolder.Name = "BusTraffic"
-trafficFolder.Parent = world
+task.spawn(function()
+	while world.Parent do
+		removeLegacyTraffic()
+		task.wait(1)
+	end
+end)
 
 local function cleanBus(model)
 	for _, object in ipairs(model:GetDescendants()) do
@@ -73,8 +97,7 @@ local endX = maxX + 65
 local laneOffsets = {-8, 0, 8}
 
 local templateSize = busTemplate:GetExtentsSize()
-local baseYaw = templateSize.Z >= templateSize.X and math.rad(90) or 0
-local yaw = baseYaw + math.rad(180)
+local yaw = (templateSize.Z >= templateSize.X and math.rad(90) or 0) + math.rad(180)
 
 local function placeBus(bus, x, z)
 	bus:PivotTo(CFrame.new(x, 0, z) * CFrame.Angles(0, yaw, 0))
@@ -97,11 +120,7 @@ local function moveBus(bus, fromX, toX, z, duration)
 		end
 	end)
 
-	local tween = TweenService:Create(
-		driver,
-		TweenInfo.new(duration, Enum.EasingStyle.Linear),
-		{Value = targetPivot}
-	)
+	local tween = TweenService:Create(driver, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Value = targetPivot})
 	tween:Play()
 	tween.Completed:Wait()
 	connection:Disconnect()
@@ -121,4 +140,4 @@ for index = 1, 3 do
 	end)
 end
 
-print("Imported bus-only traffic loaded")
+print("Imported detailed bus traffic loaded; legacy traffic removed")
