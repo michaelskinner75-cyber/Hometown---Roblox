@@ -3,15 +3,24 @@ local Players = game:GetService("Players")
 local world = workspace:WaitForChild("HometownWorld")
 local plotsFolder = world:WaitForChild("Plots")
 
-local PAD_SPACING = 9
-local PAD_FORWARD_OFFSET = 7
+local PAD_SPACING = 12
+local PAD_FORWARD_OFFSET = 8
 local PAD_SIZE = Vector3.new(0.5, 5, 5)
-local TOUCH_COOLDOWN = 1.5
+
+local function money(value)
+	local text = tostring(math.floor(value))
+	while true do
+		local updated, count = text:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+		text = updated
+		if count == 0 then break end
+	end
+	return "£" .. text
+end
 
 local function addLabel(part, text)
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "ActionLabel"
-	billboard.Size = UDim2.fromOffset(170, 50)
+	billboard.Size = UDim2.fromOffset(180, 52)
 	billboard.StudsOffset = Vector3.new(0, 2.8, 0)
 	billboard.AlwaysOnTop = true
 	billboard.Parent = part
@@ -25,6 +34,7 @@ local function addLabel(part, text)
 	label.Font = Enum.Font.GothamBold
 	label.Text = text
 	label.Parent = billboard
+	return label
 end
 
 local function createPad(folder, name, text, colour, cframe)
@@ -40,29 +50,8 @@ local function createPad(folder, name, text, colour, cframe)
 	pad.TopSurface = Enum.SurfaceType.Smooth
 	pad.BottomSurface = Enum.SurfaceType.Smooth
 	pad.Parent = folder
-	addLabel(pad, text)
-	return pad
-end
-
-local function classifyPrompt(prompt)
-	local name = string.lower(prompt.Name)
-	local action = string.lower(prompt.ActionText or "")
-
-	if string.find(name, "sell") or string.find(action, "sell") then
-		return "Sell"
-	elseif string.find(name, "rent") or string.find(action, "rent") or string.find(action, "tenant") then
-		return "Rent"
-	elseif string.find(name, "progress") or string.find(action, "buy") or string.find(action, "upgrade") then
-		return "Build"
-	end
-
-	return nil
-end
-
-local function getPlayerFromHit(hit)
-	local character = hit and hit.Parent
-	if not character then return nil end
-	return Players:GetPlayerFromCharacter(character)
+	local label = addLabel(pad, text)
+	return pad, label
 end
 
 local function cashValue(player)
@@ -90,6 +79,21 @@ local function resetProperty(plot)
 	plot:SetAttribute("TenantName", "")
 end
 
+local function createActionPrompt(parent, name, actionText, objectText)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = name
+	prompt.ActionText = actionText
+	prompt.ObjectText = objectText
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+	prompt.HoldDuration = 0.5
+	prompt.MaxActivationDistance = 6
+	prompt.RequiresLineOfSight = false
+	prompt.Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow
+	prompt.Parent = parent
+	return prompt
+end
+
 local function setupPlot(plot)
 	local sign = plot:WaitForChild("Sign")
 	local oldFolder = plot:FindFirstChild("InteractionPads")
@@ -101,61 +105,78 @@ local function setupPlot(plot)
 
 	local base = sign.CFrame * CFrame.new(0, -sign.Size.Y / 2 + 0.25, PAD_FORWARD_OFFSET)
 	local buildPad = createPad(folder, "BuildPad", "BUY / UPGRADE", Color3.fromRGB(45, 170, 75), base * CFrame.new(-PAD_SPACING, 0, 0))
-	local rentPad = createPad(folder, "RentPad", "STAND TO RENT", Color3.fromRGB(60, 130, 220), base)
-	local sellPad = createPad(folder, "SellPad", "STAND TO SELL", Color3.fromRGB(220, 75, 75), base * CFrame.new(PAD_SPACING, 0, 0))
+	local rentPad, rentLabel = createPad(folder, "RentPad", "RENT", Color3.fromRGB(60, 130, 220), base)
+	local sellPad, sellLabel = createPad(folder, "SellPad", "SELL", Color3.fromRGB(220, 75, 75), base * CFrame.new(PAD_SPACING, 0, 0))
 
-	local destinations = {
-		Build = buildPad,
-		Rent = rentPad,
-		Sell = sellPad,
-	}
+	local rentPrompt = createActionPrompt(rentPad, "PadRentPrompt", "Rent Property", "Own this land first")
+	local sellPrompt = createActionPrompt(sellPad, "PadSellPrompt", "Sell Property", "Own this land first")
+	rentPrompt.Enabled = false
+	sellPrompt.Enabled = false
 
-	local rentDebounce = {}
-	local sellDebounce = {}
-
-	rentPad.Touched:Connect(function(hit)
-		local player = getPlayerFromHit(hit)
-		if not player or rentDebounce[player] then return end
+	rentPrompt.Triggered:Connect(function(player)
 		if (plot:GetAttribute("OwnerUserId") or 0) ~= player.UserId then return end
 		if (plot:GetAttribute("UpgradeTier") or 0) <= 0 then return end
 
-		rentDebounce[player] = true
 		local rented = (plot:GetAttribute("MarketStatus") or "None") == "Rented"
 		plot:SetAttribute("MarketStatus", rented and "None" or "Rented")
 		plot:SetAttribute("TenantName", rented and "" or "Hometown Tenant")
-		task.delay(TOUCH_COOLDOWN, function() rentDebounce[player] = nil end)
 	end)
 
-	sellPad.Touched:Connect(function(hit)
-		local player = getPlayerFromHit(hit)
-		if not player or sellDebounce[player] then return end
+	sellPrompt.Triggered:Connect(function(player)
 		if (plot:GetAttribute("OwnerUserId") or 0) ~= player.UserId then return end
-
 		local house = plot:FindFirstChild("House")
 		local salePrice = house and (house:GetAttribute("SalePrice") or 0) or 0
 		local cash = cashValue(player)
 		if not cash or salePrice <= 0 then return end
-
-		sellDebounce[player] = true
 		cash.Value += salePrice
 		resetProperty(plot)
-		task.delay(TOUCH_COOLDOWN, function() sellDebounce[player] = nil end)
 	end)
 
 	task.spawn(function()
+		local progressionPrompt
 		while plot.Parent do
+			if not progressionPrompt or not progressionPrompt.Parent then
+				progressionPrompt = plot:FindFirstChild("ProgressionPrompt", true)
+			end
+
+			if progressionPrompt and progressionPrompt.Parent ~= buildPad then
+				progressionPrompt.Parent = buildPad
+				progressionPrompt.MaxActivationDistance = 6
+				progressionPrompt.RequiresLineOfSight = false
+				progressionPrompt.Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow
+			end
+
 			for _, descendant in ipairs(plot:GetDescendants()) do
-				if descendant:IsA("ProximityPrompt") then
-					local kind = classifyPrompt(descendant)
-					local destination = kind and destinations[kind]
-					if destination and descendant.Parent ~= destination then
-						descendant.Parent = destination
-						descendant.MaxActivationDistance = 6
-						descendant.RequiresLineOfSight = false
-						descendant.Exclusivity = Enum.ProximityPromptExclusivity.OnePerButton
+				if descendant:IsA("ProximityPrompt") and descendant ~= progressionPrompt and descendant ~= rentPrompt and descendant ~= sellPrompt then
+					local lowerName = string.lower(descendant.Name)
+					if string.find(lowerName, "rent") or string.find(lowerName, "sell") then
+						descendant.Enabled = false
 					end
 				end
 			end
+
+			local owner = plot:GetAttribute("OwnerUserId") or 0
+			local level = plot:GetAttribute("UpgradeTier") or 0
+			local house = plot:FindFirstChild("House")
+			local owned = owner ~= 0 and level > 0 and house ~= nil
+
+			rentPrompt.Enabled = owned
+			sellPrompt.Enabled = owned
+
+			if owned then
+				local rented = (plot:GetAttribute("MarketStatus") or "None") == "Rented"
+				local rent = house:GetAttribute("Rent") or 0
+				local salePrice = house:GetAttribute("SalePrice") or 0
+				rentPrompt.ActionText = rented and "Stop Renting" or "Rent Property"
+				rentPrompt.ObjectText = rented and ("Currently earning " .. money(rent) .. " / 30 sec") or ("Earn " .. money(rent) .. " / 30 sec")
+				rentLabel.Text = rented and "STOP RENTING" or "RENT"
+				sellPrompt.ObjectText = "Receive " .. money(salePrice)
+				sellLabel.Text = "SELL " .. money(salePrice)
+			else
+				rentLabel.Text = "RENT"
+				sellLabel.Text = "SELL"
+			end
+
 			task.wait(0.5)
 		end
 	end)
@@ -169,4 +190,4 @@ plotsFolder.ChildAdded:Connect(function(plot)
 	if plot:IsA("Model") then setupPlot(plot) end
 end)
 
-print("Separate property interaction pads loaded")
+print("Correct separate property pads loaded")
