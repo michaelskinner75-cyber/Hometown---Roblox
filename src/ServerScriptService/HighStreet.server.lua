@@ -11,6 +11,21 @@ local highStreet = Instance.new("Model")
 highStreet.Name = "HighStreet"
 highStreet.Parent = world
 
+local function makePart(parent, name, size, position, colour, material)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Position = position
+	part.Anchored = true
+	part.CanCollide = true
+	part.Color = colour
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
 local function cleanModel(model)
 	for _, object in ipairs(model:GetDescendants()) do
 		if object:IsA("Script") or object:IsA("LocalScript") or object:IsA("ModuleScript") then
@@ -34,74 +49,112 @@ for _, plot in ipairs(plotsFolder:GetChildren()) do
 		maxZ = math.max(maxZ, ground.Position.Z + half.Z)
 	end
 end
-
 if minX == math.huge then
 	minX, maxX, minZ, maxZ = -150, 150, -100, 100
 end
 
-local streetCentreX = maxX + 220
-local streetCentreZ = (minZ + maxZ) / 2
+local roadCentreZ = (minZ + maxZ) / 2
+local restaurantX = maxX + 205
+local stationX = minX - 120
 
 local restaurant = restaurantTemplate:Clone()
 restaurant.Name = "HighStreetRestaurant"
 restaurant.Parent = highStreet
 cleanModel(restaurant)
+restaurant:PivotTo(CFrame.new(restaurantX, 0, roadCentreZ) * CFrame.Angles(0, math.rad(90), 0))
+local restaurantBox, restaurantSize = restaurant:GetBoundingBox()
+local bottomY = restaurantBox.Position.Y - restaurantSize.Y / 2
+restaurant:PivotTo(CFrame.new(0, 0.45 - bottomY, 0) * restaurant:GetPivot())
+restaurantBox, restaurantSize = restaurant:GetBoundingBox()
 
-restaurant:PivotTo(CFrame.new(streetCentreX, 0, streetCentreZ) * CFrame.Angles(0, math.rad(90), 0))
-local boxCFrame, boxSize = restaurant:GetBoundingBox()
-local bottomY = boxCFrame.Position.Y - boxSize.Y / 2
-restaurant:PivotTo(CFrame.new(0, 0.4 - bottomY, 0) * restaurant:GetPivot())
+-- Only ground the restaurant footprint, leaving the town untouched.
+makePart(
+	highStreet,
+	"RestaurantGround",
+	Vector3.new(restaurantSize.X + 24, 2, restaurantSize.Z + 24),
+	Vector3.new(restaurantBox.Position.X, -0.8, restaurantBox.Position.Z),
+	Color3.fromRGB(74, 120, 66),
+	Enum.Material.Grass
+)
 
-local connectorRoad = Instance.new("Part")
-connectorRoad.Name = "HighStreetConnectorRoad"
-connectorRoad.Anchored = true
-connectorRoad.CanCollide = true
-connectorRoad.Material = Enum.Material.Asphalt
-connectorRoad.Color = Color3.fromRGB(46, 46, 48)
-connectorRoad.Size = Vector3.new(math.max(80, streetCentreX - maxX), 0.5, 38)
-connectorRoad.Position = Vector3.new((maxX + streetCentreX) / 2, 0.2, streetCentreZ)
-connectorRoad.Parent = highStreet
+local eastRoadLength = restaurantX - maxX
+makePart(
+	highStreet,
+	"EastConnectorRoad",
+	Vector3.new(eastRoadLength, 0.5, 38),
+	Vector3.new((maxX + restaurantX) / 2, 0.2, roadCentreZ),
+	Color3.fromRGB(46, 46, 48),
+	Enum.Material.Asphalt
+)
 
-for _, side in ipairs({-1, 1}) do
-	local pavement = Instance.new("Part")
-	pavement.Name = "HighStreetPavement"
-	pavement.Anchored = true
-	pavement.CanCollide = true
-	pavement.Material = Enum.Material.Concrete
-	pavement.Color = Color3.fromRGB(145, 145, 145)
-	pavement.Size = Vector3.new(connectorRoad.Size.X, 0.65, 8)
-	pavement.Position = connectorRoad.Position + Vector3.new(0, 0.08, side * 23)
-	pavement.Parent = highStreet
-end
+local westRoadLength = minX - stationX
+makePart(
+	highStreet,
+	"WestConnectorRoad",
+	Vector3.new(westRoadLength, 0.5, 38),
+	Vector3.new((minX + stationX) / 2, 0.2, roadCentreZ),
+	Color3.fromRGB(46, 46, 48),
+	Enum.Material.Asphalt
+)
 
-for x = maxX + 25, streetCentreX - 25, 38 do
+for _, roadInfo in ipairs({
+	{centre = (maxX + restaurantX) / 2, length = eastRoadLength},
+	{centre = (minX + stationX) / 2, length = westRoadLength},
+}) do
 	for _, side in ipairs({-1, 1}) do
-		local post = Instance.new("Part")
-		post.Name = "StreetLightPost"
-		post.Anchored = true
-		post.CanCollide = true
-		post.Material = Enum.Material.Metal
-		post.Color = Color3.fromRGB(50, 52, 58)
-		post.Size = Vector3.new(0.8, 12, 0.8)
-		post.Position = Vector3.new(x, 6, streetCentreZ + side * 23)
-		post.Parent = highStreet
-
-		local lamp = Instance.new("Part")
-		lamp.Name = "StreetLight"
-		lamp.Anchored = true
-		lamp.CanCollide = false
-		lamp.Material = Enum.Material.Neon
-		lamp.Color = Color3.fromRGB(255, 236, 180)
-		lamp.Size = Vector3.new(2.5, 0.6, 1.2)
-		lamp.Position = post.Position + Vector3.new(0, 6.1, 0)
-		lamp.Parent = highStreet
-
-		local light = Instance.new("PointLight")
-		light.Range = 18
-		light.Brightness = 1.5
-		light.Color = lamp.Color
-		light.Parent = lamp
+		makePart(
+			highStreet,
+			"HighStreetPavement",
+			Vector3.new(roadInfo.length, 0.65, 8),
+			Vector3.new(roadInfo.centre, 0.32, roadCentreZ + side * 23),
+			Color3.fromRGB(145, 145, 145),
+			Enum.Material.Concrete
+		)
 	end
 end
 
-print("High street restaurant area loaded")
+-- A compact bus turning apron inside the restaurant car park.
+makePart(
+	highStreet,
+	"RestaurantBusApron",
+	Vector3.new(54, 0.52, 44),
+	Vector3.new(restaurantX - 8, 0.21, roadCentreZ),
+	Color3.fromRGB(46, 46, 48),
+	Enum.Material.Asphalt
+)
+
+-- Bus station is built separately beyond the opposite end of the housing area.
+local station = Instance.new("Model")
+station.Name = "HometownBusStation"
+station.Parent = highStreet
+makePart(station, "StationGround", Vector3.new(96, 2, 88), Vector3.new(stationX, -0.8, roadCentreZ), Color3.fromRGB(74, 118, 64), Enum.Material.Grass)
+makePart(station, "StationRoad", Vector3.new(82, 0.55, 54), Vector3.new(stationX, 0.22, roadCentreZ), Color3.fromRGB(44, 44, 47), Enum.Material.Asphalt)
+makePart(station, "Platform", Vector3.new(66, 0.8, 10), Vector3.new(stationX, 0.45, roadCentreZ + 23), Color3.fromRGB(155, 155, 155), Enum.Material.Concrete)
+makePart(station, "ShelterRoof", Vector3.new(28, 1, 9), Vector3.new(stationX, 8.5, roadCentreZ + 27), Color3.fromRGB(45, 55, 65), Enum.Material.Metal)
+for _, xOffset in ipairs({-12, 12}) do
+	makePart(station, "ShelterPost", Vector3.new(1, 8, 1), Vector3.new(stationX + xOffset, 4, roadCentreZ + 27), Color3.fromRGB(55, 60, 68), Enum.Material.Metal)
+end
+
+local signPost = makePart(station, "StationSignPost", Vector3.new(1, 10, 1), Vector3.new(stationX - 30, 5, roadCentreZ + 27), Color3.fromRGB(40, 45, 52), Enum.Material.Metal)
+local signGui = Instance.new("BillboardGui")
+signGui.Size = UDim2.fromOffset(220, 64)
+signGui.StudsOffset = Vector3.new(0, 5, 0)
+signGui.AlwaysOnTop = false
+signGui.MaxDistance = 110
+signGui.Parent = signPost
+local signLabel = Instance.new("TextLabel")
+signLabel.Size = UDim2.fromScale(1, 1)
+signLabel.BackgroundColor3 = Color3.fromRGB(35, 55, 80)
+signLabel.TextColor3 = Color3.new(1, 1, 1)
+signLabel.Font = Enum.Font.GothamBold
+signLabel.TextScaled = true
+signLabel.Text = "HOMETOWN BUS STATION"
+signLabel.Parent = signGui
+
+highStreet:SetAttribute("RoadCentreZ", roadCentreZ)
+highStreet:SetAttribute("RestaurantStopX", restaurantX - 8)
+highStreet:SetAttribute("RestaurantStopZ", roadCentreZ + 12)
+highStreet:SetAttribute("StationStopX", stationX)
+highStreet:SetAttribute("StationStopZ", roadCentreZ + 10)
+
+print("Safe high street ground and separate bus station loaded")
