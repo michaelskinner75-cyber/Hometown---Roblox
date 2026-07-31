@@ -1,4 +1,5 @@
 local ServerStorage = game:GetService("ServerStorage")
+local Players = game:GetService("Players")
 
 local world = workspace:WaitForChild("HometownWorld")
 local plotsFolder = world:WaitForChild("Plots")
@@ -77,9 +78,9 @@ local function placeHouse(plot, choiceIndex)
 		house:ScaleTo(scale)
 	end
 
-	-- All five imports were facing away from the road, so use the opposite yaw.
-	-- Plots above the road face south; plots below the road face north.
-	local yaw = ground.Position.Z > roadCentreZ and math.rad(180) or 0
+	-- The imported models face along their local forward direction.
+	-- Flip plots below the road by 180 degrees so every front door faces the road.
+	local yaw = ground.Position.Z > roadCentreZ and 0 or math.rad(180)
 	house:PivotTo(CFrame.new(ground.Position.X, 0, ground.Position.Z) * CFrame.Angles(0, yaw, 0))
 
 	local boxCFrame, boxSize = house:GetBoundingBox()
@@ -100,7 +101,6 @@ local function createSelector(plot)
 	local oldSelector = plot:FindFirstChild("HouseSelector")
 	if oldSelector then oldSelector:Destroy() end
 
-	-- Start empty. A house is only placed after the plot owner chooses one.
 	local existingHouse = plot:FindFirstChild("House")
 	if existingHouse then existingHouse:Destroy() end
 	plot:SetAttribute("HouseBuilt", false)
@@ -119,7 +119,10 @@ local function createSelector(plot)
 		button.Size = Vector3.new(5.5, 0.6, 5.5)
 		button.Anchored = true
 		button.CanCollide = false
+		button.CanTouch = false
 		button.Material = Enum.Material.Neon
+		button.Color = Color3.fromRGB(70, 170, 255)
+		button.Transparency = 1
 		button.Position = Vector3.new(
 			ground.Position.X + startX + ((index - 1) * buttonSpacing),
 			ground.Position.Y + ground.Size.Y / 2 + 0.35,
@@ -146,15 +149,18 @@ local function createSelector(plot)
 	task.spawn(function()
 		while selector.Parent do
 			local owned = false
-			for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+			for _, player in ipairs(Players:GetPlayers()) do
 				if isOwnedBy(plot, player) then
 					owned = true
 					break
 				end
 			end
-			for _, object in ipairs(selector:GetDescendants()) do
-				if object:IsA("ProximityPrompt") then
-					object.Enabled = owned
+
+			for _, object in ipairs(selector:GetChildren()) do
+				if object:IsA("BasePart") then
+					object.Transparency = owned and 0.15 or 1
+					local prompt = object:FindFirstChildOfClass("ProximityPrompt")
+					if prompt then prompt.Enabled = owned end
 				end
 			end
 			task.wait(0.5)
@@ -169,4 +175,4 @@ for _, plot in ipairs(plotsFolder:GetChildren()) do
 	end
 end
 
-print("Owned plots now allow players to choose one of five road-facing houses")
+print("Owned plots show house choices and place road-facing homes")
