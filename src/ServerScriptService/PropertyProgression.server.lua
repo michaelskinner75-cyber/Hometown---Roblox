@@ -272,3 +272,4 @@ for _, plot in ipairs(plotsFolder:GetChildren()) do
 end
 
 print("50-level property progression loaded")
+
