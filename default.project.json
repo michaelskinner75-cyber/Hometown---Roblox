@@ -7,7 +7,7 @@
     },
     "ServerStorage": {
       "DetailedBus": {
-        "$path": "DetailedBus.rbxm"
+        "$path": "DetailedBus.rbxmx"
       }
     },
     "ServerScriptService": {
