@@ -8,6 +8,9 @@
     "ServerStorage": {
       "DetailedBus": {
         "$path": "DetailedBus.rbxmx"
+      },
+      "HighStreetRestaurant": {
+        "$path": "HighStreetRestaurant.rbxmx"
       }
     },
     "ServerScriptService": {
