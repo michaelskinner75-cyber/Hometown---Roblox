@@ -5,6 +5,35 @@ local world = workspace:WaitForChild("HometownWorld")
 local plotsFolder = world:WaitForChild("Plots")
 local busTemplate = ServerStorage:WaitForChild("DetailedBus")
 
+-- Remove the old generic road-traffic systems and their spawned vehicles.
+local blockedTrafficNames = {
+	RoadTraffic = true,
+	Traffic = true,
+	Cars = true,
+	CarTraffic = true,
+	Vehicles = true,
+	NPCVehicles = true,
+}
+
+local function removeOldTraffic()
+	for _, child in ipairs(world:GetChildren()) do
+		if blockedTrafficNames[child.Name] then
+			child:Destroy()
+		elseif child:IsA("Model") and child:GetAttribute("GenericRoadTraffic") == true then
+			child:Destroy()
+		end
+	end
+end
+
+removeOldTraffic()
+world.ChildAdded:Connect(function(child)
+	if blockedTrafficNames[child.Name] or (child:IsA("Model") and child:GetAttribute("GenericRoadTraffic") == true) then
+		task.defer(function()
+			if child.Parent then child:Destroy() end
+		end)
+	end
+end)
+
 local trafficFolder = world:FindFirstChild("BusTraffic") or Instance.new("Folder")
 trafficFolder.Name = "BusTraffic"
 trafficFolder.Parent = world
@@ -27,6 +56,7 @@ end
 local function cloneBus(name)
 	local bus = busTemplate:Clone()
 	bus.Name = name
+	bus:SetAttribute("StagecoachBus", true)
 	bus.Parent = trafficFolder
 	cleanBus(bus)
 	return bus
@@ -79,8 +109,8 @@ local function moveBus(bus, fromX, toX, z, yaw, duration)
 	driver:Destroy()
 end
 
-local bus1 = cloneBus("DetailedBus1")
-local bus2 = cloneBus("DetailedBus2")
+local bus1 = cloneBus("StagecoachBus1")
+local bus2 = cloneBus("StagecoachBus2")
 
 task.spawn(function()
 	while bus1.Parent do
@@ -97,4 +127,4 @@ task.spawn(function()
 	end
 end)
 
-print("Two buses running normally in opposite directions")
+print("Only the two Stagecoach buses are running on the road")
